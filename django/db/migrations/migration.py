@@ -3,7 +3,7 @@ from django.db.transaction import atomic
 
 from .exceptions import IrreversibleError
 
-
+# 迁移的基类
 class Migration:
     """
     The base class for all migrations.
@@ -97,6 +97,7 @@ class Migration:
         Return the resulting project state for efficient reuse by following
         Migrations.
         """
+        # 将操作映射到数据库
         for operation in self.operations:
             # If this operation cannot be represented as SQL, place a comment
             # there instead
@@ -138,6 +139,7 @@ class Migration:
         2. The operations are applied in reverse order using the states
            recorded in step 1.
         """
+        # 将原来的操作还原
         # Construct all the intermediate states we need for a reverse migration
         to_run = []
         new_state = project_state

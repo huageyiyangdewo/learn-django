@@ -44,13 +44,13 @@ class MigrationLoader:
         self, connection, load=True, ignore_no_migrations=False,
         replace_migrations=True,
     ):
-        self.connection = connection
-        self.disk_migrations = None
-        self.applied_migrations = None
+        self.connection = connection  # 数据库连接
+        self.disk_migrations = None  # 磁盘上保留的迁移信息
+        self.applied_migrations = None  # 已经完成的迁移
         self.ignore_no_migrations = ignore_no_migrations
         self.replace_migrations = replace_migrations
         if load:
-            self.build_graph()
+            self.build_graph()  # 构件迁移图
 
     @classmethod
     def migrations_module(cls, app_label):
@@ -105,12 +105,17 @@ class MigrationLoader:
                 if was_loaded:
                     reload(module)
             self.migrated_apps.add(app_config.label)
+            # 应用的迁移模块下的所有迁移文件
             migration_names = {
+                # pkgutil.iter_modules(module.__path__)
+                # 功能：假如module.__path__为：djanog.contrib.auth.migrations
+                # 则返回 djanog.contrib.auth.migrations 目录下的所有文件
                 name for _, name, is_pkg in pkgutil.iter_modules(module.__path__)
                 if not is_pkg and name[0] not in '_~'
             }
             # Load migrations
             for migration_name in migration_names:
+                # migration_path eg: django.contrib.auth.migrations.0001_initial
                 migration_path = '%s.%s' % (module_name, migration_name)
                 try:
                     migration_module = import_module(migration_path)
@@ -122,10 +127,15 @@ class MigrationLoader:
                         ) from e
                     else:
                         raise
+                # 迁移文件中必须定义 Migration 类，否则直接抛出异常    
                 if not hasattr(migration_module, "Migration"):
                     raise BadMigrationError(
                         "Migration %s in app %s has no Migration class" % (migration_name, app_config.label)
                     )
+
+                # key是一个二元组(应用标签，迁移名)，value是迁移文件中定义的Migration类的实例化对象 
+                # key=('auth','0001_initial')  代表的是一个迁移文件
+                # value 是对应的迁移文件中的类，class Migration(migrations.Migration):   
                 self.disk_migrations[app_config.label, migration_name] = migration_module.Migration(
                     migration_name,
                     app_config.label,
@@ -213,12 +223,13 @@ class MigrationLoader:
         You'll need to rebuild the graph if you apply migrations. This isn't
         usually a problem as generally migration stuff runs in a one-shot process.
         """
-        # Load disk data
+        # Load disk data  从磁盘加载迁移文件
         self.load_disk()
         # Load database data
         if self.connection is None:
             self.applied_migrations = {}
         else:
+            # 如果有数据库连接信息，直接查询迁移记录中已经应用的migration
             recorder = MigrationRecorder(self.connection)
             self.applied_migrations = recorder.applied_migrations()
         # To start, populate the migration graph with nodes for ALL migrations
@@ -226,15 +237,18 @@ class MigrationLoader:
         self.graph = MigrationGraph()
         self.replacements = {}
         for key, migration in self.disk_migrations.items():
+            # 添加所有迁移节点
             self.graph.add_node(key, migration)
             # Replacing migrations.
             if migration.replaces:
                 self.replacements[key] = migration
         for key, migration in self.disk_migrations.items():
             # Internal (same app) dependencies.
+            # 同应用内的依赖
             self.add_internal_dependencies(key, migration)
         # Add external dependencies now that the internal ones have been resolved.
         for key, migration in self.disk_migrations.items():
+            # 添加其他应用的依赖
             self.add_external_dependencies(key, migration)
         # Carry out replacements where possible and if enabled.
         if self.replace_migrations:
@@ -259,6 +273,7 @@ class MigrationLoader:
                     self.graph.remove_replacement_node(key, migration.replaces)
         # Ensure the graph is consistent.
         try:
+            # 确认节点不存在哑节点
             self.graph.validate_consistency()
         except NodeNotFoundError as exc:
             # Check if the missing node could have been replaced by any squash
@@ -294,7 +309,7 @@ class MigrationLoader:
         unapplied dependencies.
         """
         recorder = MigrationRecorder(connection)
-        applied = recorder.applied_migrations()
+        applied = recorder.applied_migrations()  # 数据库中的迁移记录
         for migration in applied:
             # If the migration is unknown, skip it.
             if migration not in self.graph.nodes:
