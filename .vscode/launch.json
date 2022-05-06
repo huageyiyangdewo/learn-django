@@ -1,0 +1,45 @@
+// {
+//     // 使用 IntelliSense 了解相关属性。 
+//     // 悬停以查看现有属性的描述。
+//     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "Python: 当前文件",
+//             "type": "python",
+//             "request": "launch",
+//             "program": "${file}",
+//             "console": "integratedTerminal",
+//             "justMyCode": true
+//         }
+//     ]
+// }
+
+
+
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {"name":"Python: 当前文件","type":"python","request":"launch","program":"${file}","console":"integratedTerminal","justMyCode":true},
+        {
+            "name": "Python: Django",
+            "type": "python",
+            "request": "launch",
+            // 运行的代码文件 workspaceRoot指的是工作的根目录，这里指的是 django-4.0 这个目录
+            "program": "${workspaceRoot}/django/bin/django-admin.py",
+            // 执行 program 前，需要进入的目录,这样生成的 first_django代码就保存在这个目录下面了。
+            "cwd": "/Users/mashili/work/test/py_test/django源码阅读",
+            // 需改 python 解释器路径 到 当前根目录，找 django 时不是在 site-packages中找
+            "env": {"PYTHONPATH": "${workspaceFolder}"},
+            // 指定 运行 program 时，后面携带的 参数 
+            // 如： python django-admin.py startproject first_django
+            "args": [
+                "startproject",
+                "second_django"
+            ]
+        }
+    ]
+}
