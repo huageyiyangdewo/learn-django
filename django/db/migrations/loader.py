@@ -304,6 +304,7 @@ class MigrationLoader:
         self.graph.ensure_not_cyclic()
 
     def check_consistent_history(self, connection):
+        # 检查迁移记录的一致性，如果依赖的迁移记录不存在就会报错
         """
         Raise InconsistentMigrationHistory if any applied migrations have
         unapplied dependencies.
@@ -329,7 +330,12 @@ class MigrationLoader:
                         )
                     )
 
+    # 003_xx.py -> 002_xx.py -> 001_yy.py
+    # 004_xx.py -> 002_xx.py
+    # 这个时候存在两个叶子节点，就会报错
     def detect_conflicts(self):
+        # 检查是否冲突
+        # 应用的叶子节点有冲突的话，就会检测出来
         """
         Look through the loaded graph and detect any conflicts - apps
         with more than one leaf migration. Return a dict of the app labels
@@ -337,6 +343,7 @@ class MigrationLoader:
         """
         seen_apps = {}
         conflicting_apps = set()
+        # 把 graph 的所有叶子节点全部取出来
         for app_label, migration_name in self.graph.leaf_nodes():
             if app_label in seen_apps:
                 conflicting_apps.add(app_label)

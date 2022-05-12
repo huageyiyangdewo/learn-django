@@ -45,6 +45,8 @@ class Command(BaseCommand):
             default=DEFAULT_DB_ALIAS,
             help='Nominates a database to synchronize. Defaults to the "default" database.',
         )
+        # 只是简单的标记，并不会真正在数据库里生成相应的操作
+        # 即在 django_migrations 表里生成记录，但是不会真正的操作数据库，生成表、更新表等
         parser.add_argument(
             '--fake', action='store_true',
             help='Mark migrations as run without actually running them.',
@@ -84,7 +86,7 @@ class Command(BaseCommand):
                 import_module('.management', app_config.name)
 
         # Get the database we're operating from
-        connection = connections[database]
+        connection = connections[database]  # 默认：default
 
         # Hook for backends needing any database preparation
         connection.prepare_database()
@@ -119,6 +121,8 @@ class Command(BaseCommand):
             except LookupError as err:
                 raise CommandError(str(err))
             if run_syncdb:
+                #  executor.loader.migrated_apps
+                # {'books', 'admin' ...}  所有的迁移文件
                 if app_label in executor.loader.migrated_apps:
                     raise CommandError("Can't use run_syncdb with app '%s' as it has migrations." % app_label)
             elif app_label not in executor.loader.migrated_apps:
@@ -130,6 +134,7 @@ class Command(BaseCommand):
                 targets = [(app_label, None)]
             else:
                 try:
+                    # 根据 migration_name 找到迁移文件
                     migration = executor.loader.get_migration_by_prefix(app_label, migration_name)
                 except AmbiguityError:
                     raise CommandError(
@@ -148,18 +153,21 @@ class Command(BaseCommand):
                     target in executor.loader.replacements
                 ):
                     incomplete_migration = executor.loader.replacements[target]
+                    # target: ('book', '0003_author_live')
                     target = incomplete_migration.replaces[-1]
                 targets = [target]
             target_app_labels_only = False
         elif options['app_label']:
+            # 得到指定 app 的迁移文件中的叶子节点
             targets = [key for key in executor.loader.graph.leaf_nodes() if key[0] == app_label]
         else:
             targets = executor.loader.graph.leaf_nodes()
 
+        # 要执行的迁移文件
         plan = executor.migration_plan(targets)
         exit_dry = plan and options['check_unapplied']
 
-        if options['plan']:
+        if options['plan']:  # 加上 --plan
             self.stdout.write('Planned operations:', self.style.MIGRATE_LABEL)
             if not plan:
                 self.stdout.write('  No planned migration operations.')
@@ -245,11 +253,13 @@ class Command(BaseCommand):
                         "migrations, and then re-run 'manage.py migrate' to "
                         "apply them."
                     ))
-            fake = False
-            fake_initial = False
+            fake = False  # --fake 这是为 false
+            fake_initial = False  # --fake-initial
         else:
             fake = options['fake']
             fake_initial = options['fake_initial']
+        
+        # 核心，迁移动作
         post_migrate_state = executor.migrate(
             targets, plan=plan, state=pre_migrate_state.clone(), fake=fake,
             fake_initial=fake_initial,

@@ -25,14 +25,19 @@ class Command(BaseCommand):
     help = "Creates new migration(s) for apps."
 
     def add_arguments(self, parser):
+        # eg: python manage.py migrations books 
+        # 这里的 books 就是这个参数
         parser.add_argument(
             'args', metavar='app_label', nargs='*',
             help='Specify the app label(s) to create migrations for.',
         )
+        # 只是显示将产生的迁移文件
+        # 并不会真的生成迁移文件
         parser.add_argument(
             '--dry-run', action='store_true',
             help="Just show what migrations would be made; don't actually write them.",
         )
+        # 将冲突的迁移文件合并
         parser.add_argument(
             '--merge', action='store_true',
             help="Enable fixing of migration conflicts.",
@@ -45,10 +50,12 @@ class Command(BaseCommand):
             '--noinput', '--no-input', action='store_false', dest='interactive',
             help='Tells Django to NOT prompt the user for input of any kind.',
         )
+        # 改变生成的迁移文件的名称
         parser.add_argument(
             '-n', '--name',
             help="Use this name for migration file(s).",
         )
+        
         parser.add_argument(
             '--no-header', action='store_false', dest='include_header',
             help='Do not add header comments to new migration file(s).',
@@ -60,12 +67,12 @@ class Command(BaseCommand):
 
     @no_translations
     def handle(self, *app_labels, **options):
-        self.verbosity = options['verbosity']
-        self.interactive = options['interactive']
-        self.dry_run = options['dry_run']
+        self.verbosity = options['verbosity']  # -v 是否打印详情
+        self.interactive = options['interactive']  # 是否交互
+        self.dry_run = options['dry_run']  # 不会生成迁移文件
         self.merge = options['merge']
         self.empty = options['empty']
-        self.migration_name = options['name']
+        self.migration_name = options['name']  # 自定义迁移名
         if self.migration_name and not self.migration_name.isidentifier():
             raise CommandError('The migration name must be a valid Python identifier.')
         self.include_header = options['include_header']
@@ -91,12 +98,13 @@ class Command(BaseCommand):
         consistency_check_labels = {config.label for config in apps.get_app_configs()}
         # Non-default databases are only checked if database routers used.
         aliases_to_check = connections if settings.DATABASE_ROUTERS else [DEFAULT_DB_ALIAS]
-        for alias in sorted(aliases_to_check):
+        for alias in sorted(aliases_to_check):  # ['default']
             connection = connections[alias]
             if (connection.settings_dict['ENGINE'] != 'django.db.backends.dummy' and any(
                     # At least one model must be migrated to the database.
                     router.allow_migrate(connection.alias, app_label, model_name=model._meta.object_name)
                     for app_label in consistency_check_labels
+                    # books 下面所定义的 所有模型类，eg: Books
                     for model in apps.get_app_config(app_label).get_models()
             )):
                 try:
@@ -110,6 +118,9 @@ class Command(BaseCommand):
                     )
         # Before anything else, see if there's conflicting apps and drop out
         # hard if there are any and they don't want to merge
+        # 003_xx.py -> 002_xx.py -> 001_yy.py
+        # 004_xx.py -> 002_xx.py
+        # 这个时候存在两个叶子节点，就会报错
         conflicts = loader.detect_conflicts()
 
         # If app_labels is specified, filter out conflicting migrations for unspecified apps
@@ -138,6 +149,7 @@ class Command(BaseCommand):
         # If they want to merge and there is something to merge, then
         # divert into the merge code
         if self.merge and conflicts:
+            # 合并冲突
             return self.handle_merge(loader, conflicts)
 
         if self.interactive:
@@ -169,6 +181,8 @@ class Command(BaseCommand):
             return
 
         # Detect changes
+        # 核心地方
+        # 根据磁盘上的迁移文件和数据库中的表结构，判断后续处理步骤，比如是否更新字段、增加新表等
         changes = autodetector.changes(
             graph=loader.graph,
             trim_to_apps=app_labels or None,
@@ -187,6 +201,7 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write("No changes detected")
         else:
+            # 写迁移文件
             self.write_migration_files(changes)
             if check_changes:
                 sys.exit(1)
@@ -224,6 +239,8 @@ class Command(BaseCommand):
                             open(init_path, "w").close()
                         # We just do this once per app
                         directory_created[app_label] = True
+                    
+                    # writer.as_string() 核心内容，写入文件的内容
                     migration_string = writer.as_string()
                     with open(writer.path, "w", encoding='utf-8') as fh:
                         fh.write(migration_string)
