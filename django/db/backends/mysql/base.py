@@ -87,7 +87,9 @@ class CursorWrapper:
             if e.args[0] in self.codes_for_integrityerror:
                 raise IntegrityError(*tuple(e.args))
             raise
-
+    
+    # CursorWrapper对象 -> cursor.fetchone() 
+    # 其实找的是mysqlclient模块中的Cursor对象的fetchone()
     def __getattr__(self, attr):
         return getattr(self.cursor, attr)
 
@@ -141,6 +143,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'mediumtext', 'longtext', 'json',
     )
 
+    # 这里就是写django orm语句时，转换为 原生 sql 到映射的表
     operators = {
         'exact': '= %s',
         'iexact': 'LIKE %s',
@@ -230,6 +233,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     @async_unsafe
     def get_new_connection(self, conn_params):
+        # Database 其实就是 MySQLdb (mysqlclient库)
+        # connection 就是 Database 其实就是 MySQLdb.connect(user='xx')
+
         connection = Database.connect(**conn_params)
         # bytes encoder in mysqlclient doesn't work and was added only to
         # prevent KeyErrors in Django < 2.0. We can remove this workaround when
@@ -257,6 +263,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     @async_unsafe
     def create_cursor(self, name=None):
+        # self.connection 属性值是mysqlclient模块中的Connection对象
+        # cursor值就是mysqlclient模块中定义的cursor对象
         cursor = self.connection.cursor()
         return CursorWrapper(cursor)
 

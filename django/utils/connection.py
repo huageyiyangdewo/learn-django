@@ -12,6 +12,7 @@ class ConnectionProxy:
         self.__dict__['_alias'] = alias
 
     def __getattr__(self, item):
+        # 比如：connection.cursor() 会调用这个方法  《===》 connections['default].cursor()
         return getattr(self._connections[self._alias], item)
 
     def __setattr__(self, name, value):
@@ -57,7 +58,7 @@ class BaseConnectionHandler:
         try:
             return getattr(self._connections, alias)
         except AttributeError:
-            if alias not in self.settings:
+            if alias not in self.settings:  # 会调用上面的 settings() 方法
                 raise self.exception_class(f"The connection '{alias}' doesn't exist.")
         conn = self.create_connection(alias)
         setattr(self._connections, alias, conn)

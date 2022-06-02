@@ -61,6 +61,7 @@ class LazySettings(LazyObject):
         """
         settings_module = os.environ.get(ENVIRONMENT_VARIABLE) # None
         if not settings_module: # True
+            # 没有导入环境变量时，直接报错
             desc = ("setting %s" % name) if name else "settings"
             raise ImproperlyConfigured(
                 "Requested %s, but settings are not configured. "
@@ -68,9 +69,12 @@ class LazySettings(LazyObject):
                 "or call settings.configure() before accessing settings."
                 % (desc, ENVIRONMENT_VARIABLE))
 
+        # 配置信息就是通过 Settings 来进行加载设置的
+        # 保存的是所有的配置信息
         self._wrapped = Settings(settings_module)
 
     def __repr__(self):
+        # 使用 print 函数 打印的时候，就会调用 这个方法
         # Hardcode the class name as otherwise it yields 'Settings'.
         if self._wrapped is empty:
             return '<LazySettings [Unevaluated]>'
@@ -90,6 +94,9 @@ class LazySettings(LazyObject):
             val = self._add_script_prefix(val)
         elif name == 'SECRET_KEY' and not val:
             raise ImproperlyConfigured("The SECRET_KEY setting must not be empty.")
+
+        # 这里是做了一层缓存，这就是为什么 在外面改了项目配置，之前通过 python manage.py shell 
+        # 启动的交互式界面，查询的时候依旧是之前的配置信息
 
         self.__dict__[name] = val
         return val
@@ -167,10 +174,11 @@ class LazySettings(LazyObject):
 
 
 class Settings:
-    def __init__(self, settings_module):
+    def __init__(self, settings_module):  # settings_module -> 'first_django.settings'
         # update this dict from global settings (but only for ALL_CAPS settings)
         for setting in dir(global_settings):
-            if setting.isupper():
+            if setting.isupper():  # 是否是 大写的
+                # 给 setting 赋属性值
                 setattr(self, setting, getattr(global_settings, setting))
 
         # store the settings module in case someone later cares
@@ -192,6 +200,8 @@ class Settings:
                 if (setting in tuple_settings and
                         not isinstance(setting_value, (list, tuple))):
                     raise ImproperlyConfigured("The %s setting must be a list or a tuple." % setting)
+                # 这里就是 将 first_django/settings.py 设置的配置加载进来，
+                # 如果和 global_settings.py 中的重复，就会覆盖掉 global_settings.py 的 设置
                 setattr(self, setting, setting_value)
                 self._explicit_settings.add(setting)
 
